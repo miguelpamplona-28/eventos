@@ -1,0 +1,2285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Gestão - Eventos, Clientes & Fornecedores</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 font-sans text-gray-100 antialiased min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-20">
+        <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
+            <div onclick="navegarPara('dashboard')" class="flex items-center gap-2.5 cursor-pointer shrink-0">
+                <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <span class="text-lg font-extrabold tracking-wide text-indigo-400 uppercase">Eventos & Fornecedores</span>
+            </div>
+
+            <div class="relative flex-1 max-w-md hidden sm:block">
+                <input type="text" id="busca-global" onkeyup="executarBuscaGlobal(this.value)" placeholder="Pesquisar eventos, clientes, produtos ou fornecedores..." class="w-full pl-4 pr-10 py-2 text-sm bg-slate-800 text-gray-100 placeholder-gray-500 border border-transparent focus:border-indigo-500 focus:bg-slate-900 rounded-lg focus:outline-none transition">
+                <i data-lucide="search" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="abrirModalVenda()" class="hidden sm:flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition">
+                    <i data-lucide="shopping-bag" class="w-4 h-4"></i> Nova Venda
+                </button>
+                <button onclick="abrirModalCliente()" class="hidden md:flex items-center gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-xs font-semibold px-3 py-2 rounded-lg transition">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Novo Cliente
+                </button>
+                <button onclick="abrirModalEvento()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Novo Evento
+                </button>
+                <div class="flex items-center gap-2 pl-3 border-l border-slate-700 text-sm text-gray-300">
+                    <div class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                    </div>
+                    <span class="hidden lg:inline font-medium">administrador</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900/60 border-t border-slate-800 px-6 py-2.5">
+            <div class="max-w-[1440px] mx-auto flex items-center justify-between text-xs text-gray-400">
+                <h1 id="titulo-pagina" class="text-base font-bold text-white">Painel</h1>
+                <div class="flex items-center gap-1.5">
+                    <i data-lucide="home" class="w-3.5 h-3.5 text-gray-500"></i>
+                    <span>/</span>
+                    <span id="breadcrumb-atual" class="font-medium text-indigo-400">Painel</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-[1440px] w-full mx-auto px-6 py-6 flex flex-col md:flex-row gap-6 flex-1">
+
+        <aside class="w-full md:w-60 shrink-0">
+            <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm p-3 sticky top-28">
+                <nav class="space-y-1" id="menu-navegacao">
+                    <button onclick="navegarPara('dashboard')" id="nav-dashboard" class="w-full flex items-center justify-between px-3.5 py-2.5 bg-indigo-500/20 text-indigo-300 rounded-lg text-sm font-semibold transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel</span>
+                    </button>
+                    <button onclick="navegarPara('eventos')" id="nav-eventos" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="calendar" class="w-4 h-4"></i> Eventos</span>
+                        <span id="badge-menu-eventos" class="text-[11px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                    <button onclick="navegarPara('vendas')" id="nav-vendas" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Vendas / Produtos</span>
+                        <span id="badge-menu-vendas" class="text-[11px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                    <button onclick="navegarPara('clientes')" id="nav-clientes" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="users" class="w-4 h-4"></i> Clientes</span>
+                        <span id="badge-menu-clientes" class="text-[11px] bg-purple-500/20 text-purple-300 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                    <button onclick="navegarPara('estoque')" id="nav-estoque" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="boxes" class="w-4 h-4"></i> Produtos & Estoque</span>
+                    </button>
+                    <button onclick="navegarPara('fornecedores')" id="nav-fornecedores" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="truck" class="w-4 h-4"></i> Fornecedores</span>
+                        <span id="badge-menu-fornecedores" class="text-[11px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                    <button onclick="navegarPara('relatorios')" id="nav-relatorios" class="w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors">
+                        <span class="flex items-center gap-2.5"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Relatórios & Lucro</span>
+                    </button>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="flex-1 min-w-0 space-y-6">
+
+            <div id="aba-dashboard" class="space-y-6">
+
+                <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm p-6 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base font-bold text-gray-100 flex items-center gap-2">
+                            <i data-lucide="calendar-check" class="w-5 h-5 text-indigo-400"></i> Resumo dos eventos
+                        </h2>
+                        <button onclick="navegarPara('eventos')" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                            <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Gerenciar Eventos
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div onclick="navegarPara('eventos')" class="cursor-pointer bg-indigo-600 hover:bg-indigo-500 transition text-white rounded-lg p-5 relative overflow-hidden shadow-sm">
+                            <i data-lucide="calendar-plus" class="w-6 h-6 text-indigo-300/70 absolute top-3 right-3"></i>
+                            <div class="text-center mt-1">
+                                <p id="kpi-eventos" class="text-3xl font-extrabold">0</p>
+                                <p class="text-xs font-medium text-indigo-100 mt-1">Eventos adicionados</p>
+                            </div>
+                        </div>
+
+                        <div onclick="navegarPara('eventos')" class="cursor-pointer bg-purple-600 hover:bg-purple-500 transition text-white rounded-lg p-5 relative overflow-hidden shadow-sm">
+                            <i data-lucide="check-circle-2" class="w-6 h-6 text-purple-300/70 absolute top-3 right-3"></i>
+                            <div class="text-center mt-1">
+                                <p id="kpi-eventos-confirmados" class="text-3xl font-extrabold">0</p>
+                                <p class="text-xs font-medium text-purple-100 mt-1">Eventos confirmados</p>
+                            </div>
+                        </div>
+
+                        <div onclick="navegarPara('clientes')" class="cursor-pointer bg-violet-600 hover:bg-violet-500 transition text-white rounded-lg p-5 relative overflow-hidden shadow-sm">
+                            <i data-lucide="user-check" class="w-6 h-6 text-violet-300/70 absolute top-3 right-3"></i>
+                            <div class="text-center mt-1">
+                                <p id="kpi-pagos" class="text-3xl font-extrabold">0</p>
+                                <p class="text-xs font-medium text-violet-100 mt-1">Pagamentos concluídos</p>
+                            </div>
+                        </div>
+
+                        <div onclick="navegarPara('relatorios')" class="cursor-pointer bg-indigo-800 hover:bg-indigo-700 transition text-white rounded-lg p-5 relative overflow-hidden shadow-sm">
+                            <i data-lucide="trending-up" class="w-6 h-6 text-indigo-400/70 absolute top-3 right-3"></i>
+                            <div class="text-center mt-1">
+                                <p id="kpi-lucro-dashboard" class="text-2xl font-extrabold">R$ 0,00</p>
+                                <p class="text-xs font-medium text-indigo-200 mt-1">Lucro líquido atual</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto border border-slate-800 rounded-lg">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-400 font-semibold text-xs border-b border-slate-800">
+                                <tr>
+                                    <th class="p-3.5">Evento(s)</th>
+                                    <th class="p-3.5">Local</th>
+                                    <th class="p-3.5">Gasto Previsto</th>
+                                    <th class="p-3.5">Capacidade / Ocupação</th>
+                                    <th class="p-3.5">Status</th>
+                                    <th class="p-3.5 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-resumo-eventos" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-base font-bold text-gray-100">Faturamento por Evento</h3>
+                                <p class="text-xs text-gray-500">Comparativo de valores contratados por evento</p>
+                            </div>
+                            <span class="px-2.5 py-1 text-xs font-semibold bg-indigo-500/20 text-indigo-300 rounded-full">Tempo Real</span>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="grafico-eventos"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm p-6 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-gray-100">Formas de Pagamento</h3>
+                            <p class="text-xs text-gray-500 mb-4">Distribuição entre Dinheiro, PIX e Cartão</p>
+                        </div>
+                        <div class="h-52 flex items-center justify-center">
+                            <canvas id="grafico-pagamentos"></canvas>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between text-xs text-gray-400">
+                            <span>Estoque crítico:</span>
+                            <button onclick="navegarPara('estoque')" id="kpi-alerta" class="font-bold text-indigo-400 hover:underline">0 Itens</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section id="aba-eventos" class="hidden space-y-6">
+                <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-white">Gerenciamento de Eventos</h2>
+                            <p class="text-sm text-gray-400">Crie, edite informações, defina o preço gasto em cada evento e altere status.</p>
+                        </div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <div class="px-3 py-1.5 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs">
+                                <span class="text-gray-400">Gasto Total nos Eventos:</span>
+                                <strong id="ev-total-gastos" class="text-rose-400 ml-1">R$ 0,00</strong>
+                            </div>
+                            <input type="text" onkeyup="filtrarTabela('tabela-eventos', this.value)" placeholder="Filtrar eventos..." class="border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="abrirModalEvento()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Novo Evento
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Nome do Evento</th>
+                                    <th class="p-4">Data</th>
+                                    <th class="p-4">Local</th>
+                                    <th class="p-4">Capacidade</th>
+                                    <th class="p-4">Preço Gasto</th>
+                                    <th class="p-4">Observações</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-eventos" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- NOVA ABA: VENDAS DE PRODUTOS -->
+            <section id="aba-vendas" class="hidden space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-gray-500">Total Vendido em Produtos</p>
+                            <h3 id="venda-kpi-total" class="text-2xl font-extrabold text-white mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-indigo-500/15 text-indigo-400 rounded-lg"><i data-lucide="shopping-bag" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-emerald-400">Recebido em Vendas</p>
+                            <h3 id="venda-kpi-pago" class="text-2xl font-extrabold text-emerald-400 mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-500/15 text-emerald-400 rounded-lg"><i data-lucide="check-circle" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-amber-400">Vendas Pendentes</p>
+                            <h3 id="venda-kpi-pendente" class="text-2xl font-extrabold text-amber-400 mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-amber-500/15 text-amber-400 rounded-lg"><i data-lucide="clock" class="w-5 h-5"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-white">Venda de Produtos</h2>
+                            <p class="text-sm text-gray-400">Registre vendas de produtos do estoque ou avulsos, com baixa automática e envio direto para o lucro.</p>
+                        </div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <input type="text" onkeyup="filtrarTabela('tabela-vendas', this.value)" placeholder="Buscar produto ou comprador..." class="border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="abrirModalVenda()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Registrar Venda
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Produto Vendido</th>
+                                    <th class="p-4">Comprador / Evento</th>
+                                    <th class="p-4">Qtd & Unitário</th>
+                                    <th class="p-4">Valor Total</th>
+                                    <th class="p-4">Pagamento</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-vendas" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aba-clientes" class="hidden space-y-6">
+                <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-white">Clientes e Pagamentos</h2>
+                            <p class="text-sm text-gray-400">Marque clientes, escolha a forma de pagamento e entre em contato via WhatsApp ou Ligação.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="text" onkeyup="filtrarTabela('tabela-clientes', this.value)" placeholder="Buscar cliente..." class="border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="abrirModalCliente()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <i data-lucide="user-plus" class="w-4 h-4"></i> Novo Cliente
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="barra-selecao-clientes" class="hidden bg-indigo-500/10 border-b border-indigo-500/20 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-sm">
+                        <div class="flex items-center gap-2 text-indigo-200 font-medium">
+                            <i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>
+                            <span><strong id="qtd-clientes-marcados">0</strong> cliente(s) marcado(s)</span>
+                            <span class="text-indigo-500/40">|</span>
+                            <span>Total selecionado: <strong id="soma-clientes-marcados">R$ 0,00</strong></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="marcarSelecionadosComoPagos()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition">
+                                Marcar como Pago
+                            </button>
+                            <button onclick="apagarClientesSelecionados()" class="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition">
+                                Apagar Marcados
+                            </button>
+                            <button onclick="limparSelecaoClientes()" class="px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-gray-300 text-xs font-medium rounded-lg transition">
+                                Limpar Seleção
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4 w-10">
+                                        <input type="checkbox" id="selecionar-todos-clientes" onchange="alternarTodosClientes(this)" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" title="Marcar todos">
+                                    </th>
+                                    <th class="p-4">Cliente & Contato Rápido</th>
+                                    <th class="p-4">Dados</th>
+                                    <th class="p-4">Evento</th>
+                                    <th class="p-4">Valor Total</th>
+                                    <th class="p-4">Forma de Pagamento</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-clientes" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aba-estoque" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-lg font-bold text-white">Produtos & Estoque</h2>
+                            <p class="text-sm text-gray-400">Controle de insumos disponíveis e reposição.</p>
+                        </div>
+                        <button onclick="document.getElementById('modal-produto').showModal()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Cadastrar Produto
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">SKU</th>
+                                    <th class="p-4">Produto</th>
+                                    <th class="p-4">Categoria</th>
+                                    <th class="p-4">Qtd Disponível</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-estoque" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm p-6 flex flex-col justify-between h-fit">
+                    <div>
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="alert-circle" class="w-5 h-5 text-indigo-400"></i>
+                            <h3 class="text-md font-bold text-white">Alerta de Reposição</h3>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-4">Itens com quantidade igual ou menor que o mínimo:</p>
+                        <div id="lista-alertas" class="space-y-3"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aba-fornecedores" class="hidden space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-gray-500">Total Fornecedores</p>
+                            <h3 id="forn-kpi-total" class="text-2xl font-extrabold text-white mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-indigo-500/15 text-indigo-400 rounded-lg"><i data-lucide="truck" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-rose-400">Falta Pagar (A Pagar)</p>
+                            <h3 id="forn-kpi-apagar" class="text-2xl font-extrabold text-rose-400 mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-rose-500/15 text-rose-400 rounded-lg"><i data-lucide="clock" class="w-5 h-5"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-emerald-400">Já Pago aos Fornecedores</p>
+                            <h3 id="forn-kpi-pago" class="text-2xl font-extrabold text-emerald-400 mt-1">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-500/15 text-emerald-400 rounded-lg"><i data-lucide="check-circle" class="w-5 h-5"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-white">Gestão de Fornecedores & Preços</h2>
+                            <p class="text-sm text-gray-400">Cadastre parceiros, defina o preço a pagar e entre em contato por WhatsApp ou Ligação.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="text" onkeyup="filtrarTabela('tabela-fornecedores', this.value)" placeholder="Buscar fornecedor..." class="border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="abrirModalFornecedor()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Cadastrar Fornecedor
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Empresa / Fornecedor</th>
+                                    <th class="p-4">Serviço / Categoria</th>
+                                    <th class="p-4">Contato (WhatsApp & Ligação)</th>
+                                    <th class="p-4">Preço a Pagar</th>
+                                    <th class="p-4">Status Pagamento</th>
+                                    <th class="p-4">Observação</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-fornecedores" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aba-relatorios" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-sm">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Relatório Financeiro, Gastos e Lucro Total</h2>
+                        <p class="text-sm text-gray-400">Entradas (eventos + vendas) por modalidade menos gastos com eventos, fornecedores e despesas extras.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="document.getElementById('modal-despesa').showModal()" class="flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="minus-circle" class="w-4 h-4"></i> Lançar Despesa Extra
+                        </button>
+                        <button onclick="window.print()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="printer" class="w-4 h-4"></i> Imprimir Relatório
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-gray-400">Total Recebido (Entradas)</p>
+                            <div class="p-2 bg-indigo-500/15 rounded-lg text-indigo-400">
+                                <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <h3 id="rel-recebido" class="text-3xl font-extrabold text-indigo-400 mt-2">R$ 0,00</h3>
+                        <p id="rel-pendente" class="text-xs text-gray-500 mt-1">A receber (pendente): R$ 0,00</p>
+                    </div>
+
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-gray-400">Total Saídas (Eventos + Forn. + Extras)</p>
+                            <div class="p-2 bg-rose-500/15 rounded-lg text-rose-400">
+                                <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <h3 id="rel-total-despesas" class="text-3xl font-extrabold text-rose-400 mt-2">R$ 0,00</h3>
+                        <p id="rel-detalhe-saidas" class="text-xs text-gray-500 mt-1">Pago: R$ 0,00 | A Pagar: R$ 0,00</p>
+                    </div>
+
+                    <div id="card-lucro-liquido" class="bg-indigo-700 text-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-indigo-200">Lucro Líquido Total</p>
+                            <div class="p-2 bg-white/10 rounded-lg text-white">
+                                <i data-lucide="piggy-bank" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <h3 id="rel-lucro-liquido" class="text-3xl font-extrabold mt-2">R$ 0,00</h3>
+                        <p id="rel-lucro-projetado" class="text-xs text-indigo-200 mt-1">Projetado c/ pendentes: R$ 0,00</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div class="bg-slate-900 p-5 rounded-xl border-l-4 border-l-emerald-500 border border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-gray-400">Entrou em Dinheiro</p>
+                            <i data-lucide="banknote" class="w-5 h-5 text-emerald-400"></i>
+                        </div>
+                        <h3 id="rel-dinheiro-pago" class="text-2xl font-extrabold text-emerald-400 mt-2">R$ 0,00</h3>
+                        <p id="rel-dinheiro-pendente" class="text-xs text-gray-500 mt-1">Pendente em dinheiro: R$ 0,00</p>
+                    </div>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border-l-4 border-l-indigo-500 border border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-gray-400">Entrou em PIX</p>
+                            <i data-lucide="qr-code" class="w-5 h-5 text-indigo-400"></i>
+                        </div>
+                        <h3 id="rel-pix-pago" class="text-2xl font-extrabold text-indigo-400 mt-2">R$ 0,00</h3>
+                        <p id="rel-pix-pendente" class="text-xs text-gray-500 mt-1">Pendente em PIX: R$ 0,00</p>
+                    </div>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border-l-4 border-l-purple-500 border border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase text-gray-400">Entrou em Cartão</p>
+                            <i data-lucide="credit-card" class="w-5 h-5 text-purple-400"></i>
+                        </div>
+                        <h3 id="rel-cartao-pago" class="text-2xl font-extrabold text-purple-400 mt-2">R$ 0,00</h3>
+                        <p id="rel-cartao-pendente" class="text-xs text-gray-500 mt-1">Pendente em cartão: R$ 0,00</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-white">Gastos com Eventos, Fornecedores & Despesas</h3>
+                                <p class="text-xs text-gray-500">Todos os custos cadastrados nos eventos, fornecedores e despesas extras.</p>
+                            </div>
+                            <button onclick="document.getElementById('modal-despesa').showModal()" class="text-xs font-semibold text-rose-400 hover:underline">
+                                + Despesa Extra
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-300">
+                                <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                    <tr>
+                                        <th class="p-3.5">Descrição</th>
+                                        <th class="p-3.5">Origem / Categoria</th>
+                                        <th class="p-3.5">Situação</th>
+                                        <th class="p-3.5 text-right">Valor</th>
+                                        <th class="p-3.5 text-center">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rel-tabela-despesas" class="divide-y divide-slate-800"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+                        <div class="p-5 border-b border-slate-800">
+                            <h3 class="font-bold text-white">Extrato de Entradas (Clientes & Produtos)</h3>
+                            <p class="text-xs text-gray-500">Modalidade de pagamento e situação de cada entrada.</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-300">
+                                <thead class="bg-slate-800/60 text-gray-300 font-semibold uppercase text-xs">
+                                    <tr>
+                                        <th class="p-3.5">Cliente / Comprador</th>
+                                        <th class="p-3.5">Evento / Produto</th>
+                                        <th class="p-3.5">Modalidade</th>
+                                        <th class="p-3.5">Status</th>
+                                        <th class="p-3.5 text-right">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rel-tabela-extrato" class="divide-y divide-slate-800"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <dialog id="modal-evento" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-evento" class="space-y-4">
+            <input type="hidden" id="ev-id">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="titulo-modal-evento" class="text-lg font-bold text-white">Cadastrar Novo Evento</h3>
+                <button type="button" onclick="document.getElementById('modal-evento').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Nome do Evento</label>
+                <input type="text" id="ev-nome" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Casamento Silva & Souza">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Data</label>
+                    <input type="date" id="ev-data" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Capacidade (pessoas)</label>
+                    <input type="number" id="ev-capacidade" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="150">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Local</label>
+                    <input type="text" id="ev-local" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Salão Principal">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Preço Gasto no Evento (R$)</label>
+                    <input type="number" step="0.01" id="ev-custo" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="2500.00" value="0">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Status do Evento</label>
+                    <select id="ev-status" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Em Planejamento">Em Planejamento</option>
+                        <option value="Confirmado">Confirmado</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Observações / Detalhes</label>
+                    <input type="text" id="ev-obs" class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Decoração + Buffet">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-evento').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">Salvar Evento</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- NOVO MODAL: VENDA DE PRODUTO -->
+    <dialog id="modal-venda" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-venda" class="space-y-4">
+            <input type="hidden" id="venda-id">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="titulo-modal-venda" class="text-lg font-bold text-white">Registrar Venda de Produto</h3>
+                <button type="button" onclick="document.getElementById('modal-venda').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Produto do Estoque (opcional)</label>
+                    <select id="venda-estoque-id" onchange="selecionarProdutoEstoqueVenda(this.value)" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="">-- Produto Avulso --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Nome do Produto</label>
+                    <input type="text" id="venda-produto-nome" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Ingresso VIP / Bebida / Camiseta">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Quantidade</label>
+                    <input type="number" min="1" id="venda-qtd" required value="1" oninput="calcularTotalVenda()" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Valor Unit. (R$)</label>
+                    <input type="number" step="0.01" id="venda-unitario" required placeholder="50.00" oninput="calcularTotalVenda()" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-emerald-400 mb-1">Total (R$)</label>
+                    <input type="number" step="0.01" id="venda-total" required readonly class="w-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-bold rounded-lg p-2 text-sm">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Comprador / Cliente</label>
+                    <input type="text" id="venda-comprador" class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Maria Oliveira (ou Balcão)">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Evento (opcional)</label>
+                    <input type="text" id="venda-evento" class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Show de Verão">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Forma de Pagamento</label>
+                    <select id="venda-forma-pagamento" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="PIX">PIX</option>
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Status do Pagamento</label>
+                    <select id="venda-status" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Pago">Pago</option>
+                        <option value="Pendente">Pendente</option>
+                    </select>
+                </div>
+            </div>
+            <div id="box-baixar-estoque" class="flex items-center gap-2 text-xs text-gray-300 bg-slate-800/70 p-2.5 rounded-lg border border-slate-700">
+                <input type="checkbox" id="venda-baixar-estoque" checked class="w-4 h-4 rounded text-emerald-600">
+                <label for="venda-baixar-estoque">Descontar automaticamente a quantidade vendida do Estoque</label>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-venda').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium">Salvar Venda</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="modal-cliente" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-cliente" class="space-y-4">
+            <input type="hidden" id="cli-id">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="titulo-modal-cliente" class="text-lg font-bold text-white">Cadastrar Novo Cliente</h3>
+                <button type="button" onclick="document.getElementById('modal-cliente').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Nome Completo</label>
+                <input type="text" id="cli-nome" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: João da Silva">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">E-mail</label>
+                    <input type="email" id="cli-email" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="joao@email.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">WhatsApp / Telefone</label>
+                    <input type="text" id="cli-telefone" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="(41) 99999-9999">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Evento Associado</label>
+                    <input type="text" id="cli-evento" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Formatura 2026">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Valor Total (R$)</label>
+                    <input type="number" step="0.01" id="cli-valor" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="1500.00">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Forma de Pagamento</label>
+                    <select id="cli-forma-pagamento" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="PIX">PIX</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Status do Pagamento</label>
+                    <select id="cli-status" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Pendente">Pendente</option>
+                        <option value="Pago">Pago</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-cliente').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">Salvar Cliente</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="modal-fornecedor" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-fornecedor" class="space-y-4">
+            <input type="hidden" id="forn-id">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="titulo-modal-fornecedor" class="text-lg font-bold text-white">Cadastrar Novo Fornecedor</h3>
+                <button type="button" onclick="document.getElementById('modal-fornecedor').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Nome do Fornecedor / Empresa</label>
+                <input type="text" id="forn-nome" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Buffet Sabor & Arte">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Categoria / Serviço</label>
+                    <select id="forn-categoria" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Buffet & Alimentação">Buffet & Alimentação</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Som & Iluminação">Som & Iluminação</option>
+                        <option value="Decoração & Flores">Decoração & Flores</option>
+                        <option value="Locação de Móveis">Locação de Móveis</option>
+                        <option value="Segurança / Staff">Segurança / Staff</option>
+                        <option value="Outros Serviços">Outros Serviços</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Telefone / WhatsApp</label>
+                    <input type="text" id="forn-telefone" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="(41) 98888-8888">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Preço a Pagar (R$)</label>
+                    <input type="number" step="0.01" id="forn-valor" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="1200.00">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Status do Pagamento</label>
+                    <select id="forn-status" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="A Pagar">A Pagar</option>
+                        <option value="Pago">Pago</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Cidade / Observações</label>
+                <input type="text" id="forn-obs" class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Curitiba - Entrega no dia do evento">
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-fornecedor').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">Salvar Fornecedor</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="modal-despesa" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-despesa" class="space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-lg font-bold text-white">Lançar Nova Despesa Extra</h3>
+                <button type="button" onclick="document.getElementById('modal-despesa').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Descrição da Despesa</label>
+                <input type="text" id="desp-descricao" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Combustível / Gelo / Taxa extra">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Categoria</label>
+                    <select id="desp-categoria" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Buffet & Bebidas">Buffet & Bebidas</option>
+                        <option value="Equipe & Staff">Equipe & Staff</option>
+                        <option value="Som & Iluminação">Som & Iluminação</option>
+                        <option value="Decoração & Materiais">Decoração & Materiais</option>
+                        <option value="Locação / Estrutura">Locação / Estrutura</option>
+                        <option value="Outros Custos">Outros Custos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Valor da Despesa (R$)</label>
+                    <input type="number" step="0.01" id="desp-valor" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="250.00">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Evento Relacionado (opcional)</label>
+                    <input type="text" id="desp-evento" class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Casamento Silva">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Data</label>
+                    <input type="date" id="desp-data" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-despesa').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium">Salvar Despesa</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="modal-produto" class="rounded-xl p-6 backdrop:bg-black/70 shadow-xl w-full max-w-lg bg-slate-900 border border-slate-700 text-gray-100">
+        <form id="form-produto" class="space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-lg font-bold text-white">Cadastrar Novo Produto</h3>
+                <button type="button" onclick="document.getElementById('modal-produto').close()" class="text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">SKU / Código</label>
+                    <input type="text" id="est-sku" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="PROD-001">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Categoria</label>
+                    <select id="est-categoria" class="w-full border border-slate-700 bg-slate-800 text-gray-100 rounded-lg p-2 text-sm">
+                        <option value="Som & Luz">Som & Luz</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Mobiliário">Mobiliário</option>
+                        <option value="Decoração">Decoração</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Nome do Produto</label>
+                <input type="text" id="est-nome" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="Ex: Projetor Epson">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Qtd Disponível</label>
+                    <input type="number" id="est-disponivel" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="10">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Qtd Mínima (Alerta)</label>
+                    <input type="number" id="est-minima" required class="w-full border border-slate-700 bg-slate-800 text-gray-100 placeholder-gray-500 rounded-lg p-2 text-sm" placeholder="5">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('modal-produto').close()" class="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-gray-300 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">Cadastrar Produto</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+        const SUPABASE_URL = 'https://rqbcjvnhjwnkatwxmqkr.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_MW2JHg4YOjJCL_3anCt6nQ_6IsVG0gc';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let cacheEventos = [];
+        let cacheClientes = [];
+        let cacheEstoque = [];
+        let cacheFornecedores = JSON.parse(localStorage.getItem('fornecedores_backup') || '[]');
+        let cacheDespesas = JSON.parse(localStorage.getItem('despesas_backup') || '[]');
+        let cacheVendas = JSON.parse(localStorage.getItem('vendas_backup') || '[]');
+        let clientesSelecionados = new Set();
+
+        let chartEventosInstance = null;
+        let chartPagamentosInstance = null;
+
+        const titulosAbas = {
+            dashboard: 'Painel',
+            eventos: 'Eventos',
+            vendas: 'Vendas de Produtos',
+            clientes: 'Clientes & Pagamentos',
+            estoque: 'Produtos & Estoque',
+            fornecedores: 'Fornecedores & Valores',
+            relatorios: 'Relatórios Financeiros & Lucro'
+        };
+
+        function navegarPara(aba) {
+            const todasAbas = ['dashboard', 'eventos', 'vendas', 'clientes', 'estoque', 'fornecedores', 'relatorios'];
+
+            todasAbas.forEach(a => {
+                const el = document.getElementById(`aba-${a}`);
+                if (el) {
+                    if (a === aba) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('titulo-pagina').innerText = titulosAbas[aba] || 'Painel';
+            document.getElementById('breadcrumb-atual').innerText = titulosAbas[aba] || 'Painel';
+
+            document.querySelectorAll('#menu-navegacao button').forEach(btn => {
+                btn.className = "w-full flex items-center justify-between px-3.5 py-2.5 text-gray-400 hover:bg-slate-800 hover:text-indigo-400 rounded-lg text-sm font-medium transition-colors";
+            });
+
+            const btnAtivo = document.getElementById(`nav-${aba}`);
+            if (btnAtivo) {
+                btnAtivo.className = "w-full flex items-center justify-between px-3.5 py-2.5 bg-indigo-500/20 text-indigo-300 rounded-lg text-sm font-semibold transition-colors";
+            }
+
+            if (aba === 'relatorios') atualizarRelatorios();
+            if (aba === 'dashboard') atualizarGraficosDashboard();
+        }
+
+        function executarBuscaGlobal(termo) {
+            const q = termo.toLowerCase().trim();
+            if (!q) return;
+            if (cacheVendas.some(v => (v.produto_nome || '').toLowerCase().includes(q) || (v.comprador || '').toLowerCase().includes(q))) {
+                navegarPara('vendas');
+                filtrarTabela('tabela-vendas', q);
+            } else if (cacheClientes.some(c => (c.nome || '').toLowerCase().includes(q))) {
+                navegarPara('clientes');
+                filtrarTabela('tabela-clientes', q);
+            } else if (cacheFornecedores.some(f => (f.nome || '').toLowerCase().includes(q))) {
+                navegarPara('fornecedores');
+                filtrarTabela('tabela-fornecedores', q);
+            } else if (cacheEventos.some(e => (e.nome || '').toLowerCase().includes(q))) {
+                navegarPara('eventos');
+                filtrarTabela('tabela-eventos', q);
+            }
+        }
+
+        function filtrarTabela(idTbody, termo) {
+            const filtro = termo.toLowerCase();
+            const linhas = document.querySelectorAll(`#${idTbody} tr`);
+            linhas.forEach(tr => {
+                tr.style.display = tr.innerText.toLowerCase().includes(filtro) ? '' : 'none';
+            });
+        }
+
+        function gerarLinkWhatsApp(telefone, nome, tipo = 'cliente') {
+            const numeros = (telefone || '').replace(/\D/g, '');
+            const ddi = numeros.startsWith('55') ? numeros : `55${numeros}`;
+            const texto = tipo === 'fornecedor'
+                ? `Olá ${nome}, tudo bem? Estou esperando seu pagamento, caso ja tenha pagado então ignore esta mensagem.`
+                : `Olá ${nome}, tudo bem? Estou esperando seu pagamento, caso ja tenha pagado então ignore esta mensagem.`;
+            return `https://wa.me/${ddi}?text=${encodeURIComponent(texto)}`;
+        }
+
+        function gerarLinkLigacao(telefone) {
+            const numeros = (telefone || '').replace(/\D/g, '');
+            return `tel:${numeros}`;
+        }
+
+        function abrirModalEvento(id = null) {
+            const form = document.getElementById('form-evento');
+            form.reset();
+            document.getElementById('ev-id').value = '';
+            document.getElementById('ev-custo').value = '0';
+            document.getElementById('titulo-modal-evento').innerText = 'Cadastrar Novo Evento';
+
+            if (id !== null) {
+                const ev = cacheEventos.find(item => String(item.id) === String(id));
+                if (ev) {
+                    document.getElementById('titulo-modal-evento').innerText = 'Editar Evento';
+                    document.getElementById('ev-id').value = ev.id;
+                    document.getElementById('ev-nome').value = ev.nome || '';
+                    document.getElementById('ev-data').value = ev.data || '';
+                    document.getElementById('ev-capacidade').value = ev.capacidade || '';
+                    document.getElementById('ev-local').value = ev.local || '';
+                    document.getElementById('ev-custo').value = ev.custo || 0;
+                    document.getElementById('ev-status').value = ev.status || 'Em Planejamento';
+                    document.getElementById('ev-obs').value = ev.observacoes || '';
+                }
+            }
+            document.getElementById('modal-evento').showModal();
+        }
+
+        async function carregarEventos() {
+            const { data: eventos, error } = await _supabase.from('eventos').select('*').order('data', { ascending: true });
+            if (error) return console.error('Erro eventos:', error);
+
+            cacheEventos = (eventos || []).map(ev => {
+                const custoSalvoLocal = localStorage.getItem(`custo_ev_${ev.id}`);
+                return {
+                    ...ev,
+                    custo: ev.custo !== undefined && ev.custo !== null ? Number(ev.custo) : (custoSalvoLocal ? Number(custoSalvoLocal) : 0)
+                };
+            });
+
+            const tbody = document.getElementById('tabela-eventos');
+            const tbodyResumo = document.getElementById('tabela-resumo-eventos');
+            tbody.innerHTML = '';
+            tbodyResumo.innerHTML = '';
+
+            let confirmados = 0;
+            let totalGastoEventos = 0;
+
+            if (cacheEventos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500">Nenhum evento cadastrado ainda.</td></tr>`;
+                tbodyResumo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-500">Nenhum evento para exibir.</td></tr>`;
+            }
+
+            cacheEventos.forEach((ev, idx) => {
+                if (ev.status === 'Confirmado') confirmados++;
+                const custoNum = Number(ev.custo || 0);
+                totalGastoEventos += custoNum;
+
+                const dataFormatada = ev.data ? new Date(ev.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-';
+                const custoFormatado = custoNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                let badgeColor = 'bg-amber-500/20 text-amber-300';
+                if (ev.status === 'Confirmado') badgeColor = 'bg-emerald-500/20 text-emerald-300';
+                if (ev.status === 'Concluído') badgeColor = 'bg-indigo-500/20 text-indigo-300';
+                if (ev.status === 'Cancelado') badgeColor = 'bg-red-500/20 text-red-300';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/60">
+                        <td class="p-4 font-semibold text-white">${ev.nome}</td>
+                        <td class="p-4">${dataFormatada}</td>
+                        <td class="p-4">${ev.local}</td>
+                        <td class="p-4">${ev.capacidade} pessoas</td>
+                        <td class="p-4 font-bold text-rose-400">${custoFormatado}</td>
+                        <td class="p-4 text-xs text-gray-500 max-w-xs truncate">${ev.observacoes || '—'}</td>
+                        <td class="p-4"><span class="px-2.5 py-1 text-xs font-medium ${badgeColor} rounded-full">${ev.status}</span></td>
+                        <td class="p-4 text-center space-x-1">
+                            <button onclick="abrirModalEvento('${ev.id}')" class="p-1.5 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Evento / Preço Gasto">
+                                <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                            </button>
+                            <button onclick="deletarItem('eventos', '${ev.id}')" class="p-1.5 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Evento">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+
+                if (idx < 4) {
+                    const clientesDoEvento = cacheClientes.filter(c => (c.evento_associado || '').toLowerCase() === (ev.nome || '').toLowerCase()).length;
+                    const cap = ev.capacidade || 100;
+                    const pct = Math.min(100, Math.round((clientesDoEvento / cap) * 100));
+
+                    tbodyResumo.innerHTML += `
+                        <tr class="hover:bg-slate-800/60">
+                            <td class="p-3.5">
+                                <div class="font-semibold text-indigo-400">${ev.nome}</div>
+                                <div class="text-[11px] text-gray-500">Data: ${dataFormatada}</div>
+                            </td>
+                            <td class="p-3.5 text-xs font-medium text-gray-300">${ev.local}</td>
+                            <td class="p-3.5 text-xs font-bold text-rose-400">${custoFormatado}</td>
+                            <td class="p-3.5">
+                                <div class="text-xs font-bold text-gray-200">${pct}% <span class="font-normal text-gray-500">(${clientesDoEvento}/${cap} vagas)</span></div>
+                                <div class="w-28 h-1.5 bg-slate-700 rounded-full mt-1 overflow-hidden">
+                                    <div class="h-full bg-indigo-500 rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                            </td>
+                            <td class="p-3.5"><span class="px-2.5 py-1 text-[11px] font-semibold ${badgeColor} rounded-md">${ev.status}</span></td>
+                            <td class="p-3.5 text-center">
+                                <button onclick="abrirModalEvento('${ev.id}')" class="p-1 text-gray-500 hover:text-indigo-400" title="Editar">
+                                    <i data-lucide="more-vertical" class="w-4 h-4 inline"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            document.getElementById('kpi-eventos').innerText = cacheEventos.length;
+            document.getElementById('kpi-eventos-confirmados').innerText = confirmados;
+            document.getElementById('badge-menu-eventos').innerText = cacheEventos.length;
+            const elTotalGastosEv = document.getElementById('ev-total-gastos');
+            if (elTotalGastosEv) {
+                elTotalGastosEv.innerText = totalGastoEventos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        document.getElementById('form-evento').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('ev-id').value;
+            const custoNum = parseFloat(document.getElementById('ev-custo').value) || 0;
+
+            const dadosEvento = {
+                nome: document.getElementById('ev-nome').value,
+                data: document.getElementById('ev-data').value,
+                capacidade: parseInt(document.getElementById('ev-capacidade').value),
+                local: document.getElementById('ev-local').value,
+                custo: custoNum,
+                status: document.getElementById('ev-status').value,
+                observacoes: document.getElementById('ev-obs').value
+            };
+
+            let res = id
+                ? await _supabase.from('eventos').update(dadosEvento).eq('id', id).select()
+                : await _supabase.from('eventos').insert([dadosEvento]).select();
+
+            if (res.error && (res.error.message.includes('observacoes') || res.error.message.includes('custo'))) {
+                const semExtras = { ...dadosEvento };
+                delete semExtras.observacoes;
+                delete semExtras.custo;
+                res = id
+                    ? await _supabase.from('eventos').update(semExtras).eq('id', id).select()
+                    : await _supabase.from('eventos').insert([semExtras]).select();
+            }
+
+            if (!res.error) {
+                if (res.data && res.data[0]) {
+                    localStorage.setItem(`custo_ev_${res.data[0].id}`, String(custoNum));
+                } else if (id) {
+                    localStorage.setItem(`custo_ev_${id}`, String(custoNum));
+                }
+                document.getElementById('modal-evento').close();
+                document.getElementById('form-evento').reset();
+                carregarEventos();
+            } else {
+                alert('Erro ao salvar evento: ' + res.error.message);
+            }
+        });
+
+        // ===== FUNÇÕES DE VENDAS DE PRODUTOS =====
+        function preencherSelectEstoqueVenda() {
+            const select = document.getElementById('venda-estoque-id');
+            if (!select) return;
+            select.innerHTML = '<option value="">-- Produto Avulso --</option>';
+            cacheEstoque.forEach(item => {
+                select.innerHTML += `<option value="${item.id}">${item.nome} (Disp: ${item.qtd_disponivel})</option>`;
+            });
+        }
+
+        function selecionarProdutoEstoqueVenda(estoqueId) {
+            if (!estoqueId) return;
+            const prod = cacheEstoque.find(p => String(p.id) === String(estoqueId));
+            if (prod) {
+                document.getElementById('venda-produto-nome').value = prod.nome;
+            }
+        }
+
+        function calcularTotalVenda() {
+            const qtd = parseFloat(document.getElementById('venda-qtd').value) || 0;
+            const unit = parseFloat(document.getElementById('venda-unitario').value) || 0;
+            document.getElementById('venda-total').value = (qtd * unit).toFixed(2);
+        }
+
+        function abrirModalVenda(id = null) {
+            const form = document.getElementById('form-venda');
+            form.reset();
+            preencherSelectEstoqueVenda();
+            document.getElementById('venda-id').value = '';
+            document.getElementById('venda-qtd').value = '1';
+            document.getElementById('venda-total').value = '0.00';
+            document.getElementById('titulo-modal-venda').innerText = 'Registrar Venda de Produto';
+            document.getElementById('box-baixar-estoque').classList.remove('hidden');
+
+            if (id !== null) {
+                const v = cacheVendas.find(item => String(item.id) === String(id));
+                if (v) {
+                    document.getElementById('titulo-modal-venda').innerText = 'Editar Venda';
+                    document.getElementById('venda-id').value = v.id;
+                    document.getElementById('venda-estoque-id').value = v.estoque_id || '';
+                    document.getElementById('venda-produto-nome').value = v.produto_nome || '';
+                    document.getElementById('venda-qtd').value = v.quantidade || 1;
+                    document.getElementById('venda-unitario').value = v.valor_unitario || 0;
+                    document.getElementById('venda-total').value = Number(v.valor_total || 0).toFixed(2);
+                    document.getElementById('venda-comprador').value = v.comprador || '';
+                    document.getElementById('venda-evento').value = v.evento || '';
+                    document.getElementById('venda-forma-pagamento').value = v.forma_pagamento || 'PIX';
+                    document.getElementById('venda-status').value = v.status_pagamento || 'Pago';
+                    document.getElementById('box-baixar-estoque').classList.add('hidden');
+                }
+            }
+            document.getElementById('modal-venda').showModal();
+        }
+
+        async function carregarVendas() {
+            const { data, error } = await _supabase.from('vendas').select('*').order('created_at', { ascending: false });
+            if (!error && data) {
+                cacheVendas = data;
+                localStorage.setItem('vendas_backup', JSON.stringify(cacheVendas));
+            }
+            renderizarVendas();
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+        }
+
+        function renderizarVendas() {
+            const tbody = document.getElementById('tabela-vendas');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let totalVendido = 0;
+            let totalPago = 0;
+            let totalPendente = 0;
+
+            cacheVendas.forEach(v => {
+                const val = Number(v.valor_total || 0);
+                totalVendido += val;
+                if (v.status_pagamento === 'Pago') totalPago += val;
+                else totalPendente += val;
+            });
+
+            const fmt = val => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            document.getElementById('venda-kpi-total').innerText = fmt(totalVendido);
+            document.getElementById('venda-kpi-pago').innerText = fmt(totalPago);
+            document.getElementById('venda-kpi-pendente').innerText = fmt(totalPendente);
+            document.getElementById('badge-menu-vendas').innerText = cacheVendas.length;
+
+            if (cacheVendas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500">Nenhuma venda registrada ainda. Clique em "Registrar Venda" acima.</td></tr>`;
+                return;
+            }
+
+            cacheVendas.forEach(v => {
+                const isPago = v.status_pagamento === 'Pago';
+                const statusBadge = isPago ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
+                const forma = v.forma_pagamento || 'PIX';
+
+                let selectStyle = 'bg-slate-800 border-slate-700 text-gray-300';
+                if (forma === 'Dinheiro') selectStyle = 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-semibold';
+                else if (forma === 'PIX') selectStyle = 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300 font-semibold';
+                else if (forma.includes('Cartão')) selectStyle = 'bg-purple-500/15 border-purple-500/40 text-purple-300 font-semibold';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/60">
+                        <td class="p-4 font-semibold text-white">${v.produto_nome}</td>
+                        <td class="p-4 text-xs">
+                            <div class="text-gray-200 font-medium">${v.comprador || 'Cliente Balcão'}</div>
+                            <div class="text-gray-500">${v.evento || 'Venda Avulsa'}</div>
+                        </td>
+                        <td class="p-4 text-xs text-gray-300">
+                            ${v.quantidade}x <span class="text-gray-500">(${fmt(Number(v.valor_unitario || 0))})</span>
+                        </td>
+                        <td class="p-4 font-bold text-emerald-400">${fmt(Number(v.valor_total || 0))}</td>
+                        <td class="p-4">
+                            <select onchange="alterarFormaPagamentoVenda('${v.id}', this.value)" class="text-xs border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${selectStyle}">
+                                <option value="Dinheiro" ${forma === 'Dinheiro' ? 'selected' : ''}>💵 Dinheiro</option>
+                                <option value="PIX" ${forma === 'PIX' ? 'selected' : ''}>💠 PIX</option>
+                                <option value="Cartão de Crédito" ${forma === 'Cartão de Crédito' ? 'selected' : ''}>💳 Cartão de Crédito</option>
+                                <option value="Cartão de Débito" ${forma === 'Cartão de Débito' ? 'selected' : ''}>💳 Cartão de Débito</option>
+                            </select>
+                        </td>
+                        <td class="p-4">
+                            <button onclick="alternarStatusVenda('${v.id}', '${v.status_pagamento || 'Pago'}')" title="Clique para alternar status" class="px-2.5 py-1 text-xs font-medium ${statusBadge} rounded-full hover:opacity-80 transition">
+                                ${v.status_pagamento || 'Pago'}
+                            </button>
+                        </td>
+                        <td class="p-4 text-center space-x-1">
+                            <button type="button" onclick="abrirModalVenda('${v.id}')" class="p-1.5 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Venda">
+                                <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                            </button>
+                            <button type="button" onclick="removerVenda('${v.id}')" class="p-1.5 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Venda">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function alterarFormaPagamentoVenda(id, novaForma) {
+            const idStr = String(id);
+            const venda = cacheVendas.find(v => String(v.id) === idStr);
+            if (venda) venda.forma_pagamento = novaForma;
+            localStorage.setItem('vendas_backup', JSON.stringify(cacheVendas));
+
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('vendas').update({ forma_pagamento: novaForma }).eq('id', id);
+            }
+            renderizarVendas();
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+        }
+
+        async function alternarStatusVenda(id, statusAtual) {
+            const novoStatus = statusAtual === 'Pago' ? 'Pendente' : 'Pago';
+            const idStr = String(id);
+            const venda = cacheVendas.find(v => String(v.id) === idStr);
+            if (venda) venda.status_pagamento = novoStatus;
+            localStorage.setItem('vendas_backup', JSON.stringify(cacheVendas));
+
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('vendas').update({ status_pagamento: novoStatus }).eq('id', id);
+            }
+            renderizarVendas();
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+        }
+
+        document.getElementById('form-venda').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('venda-id').value;
+            const estoqueId = document.getElementById('venda-estoque-id').value;
+            const qtd = parseInt(document.getElementById('venda-qtd').value) || 1;
+            const unitario = parseFloat(document.getElementById('venda-unitario').value) || 0;
+            const total = parseFloat((qtd * unitario).toFixed(2));
+            const baixarEstoque = document.getElementById('venda-baixar-estoque').checked;
+
+            const dadosVenda = {
+                estoque_id: estoqueId || null,
+                produto_nome: document.getElementById('venda-produto-nome').value,
+                quantidade: qtd,
+                valor_unitario: unitario,
+                valor_total: total,
+                comprador: document.getElementById('venda-comprador').value || 'Cliente Balcão',
+                evento: document.getElementById('venda-evento').value || 'Venda Avulsa',
+                forma_pagamento: document.getElementById('venda-forma-pagamento').value,
+                status_pagamento: document.getElementById('venda-status').value
+            };
+
+            const idStr = String(id);
+            let res;
+
+            if (id && !idStr.startsWith('local_')) {
+                res = await _supabase.from('vendas').update(dadosVenda).eq('id', id).select();
+            } else if (!id) {
+                res = await _supabase.from('vendas').insert([dadosVenda]).select();
+            }
+
+            if (res && !res.error && res.data && res.data[0]) {
+                await carregarVendas();
+            } else {
+                if (id) {
+                    const idx = cacheVendas.findIndex(v => String(v.id) === idStr);
+                    if (idx !== -1) cacheVendas[idx] = { ...cacheVendas[idx], ...dadosVenda };
+                } else {
+                    dadosVenda.id = 'local_' + Date.now();
+                    cacheVendas.unshift(dadosVenda);
+                }
+                localStorage.setItem('vendas_backup', JSON.stringify(cacheVendas));
+                renderizarVendas();
+                atualizarRelatorios();
+                atualizarGraficosDashboard();
+            }
+
+            if (!id && estoqueId && baixarEstoque) {
+                const itemEst = cacheEstoque.find(item => String(item.id) === String(estoqueId));
+                if (itemEst) {
+                    const novaQtd = Math.max(0, Number(itemEst.qtd_disponivel) - qtd);
+                    await alterarQtdEstoque(itemEst.id, novaQtd);
+                }
+            }
+
+            document.getElementById('modal-venda').close();
+            document.getElementById('form-venda').reset();
+        });
+
+        async function removerVenda(id) {
+            if (!confirm('Deseja excluir esta venda?')) return;
+            const idStr = String(id);
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('vendas').delete().eq('id', id);
+            }
+            cacheVendas = cacheVendas.filter(v => String(v.id) !== idStr);
+            localStorage.setItem('vendas_backup', JSON.stringify(cacheVendas));
+            renderizarVendas();
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+        }
+
+        function abrirModalCliente(id = null) {
+            const form = document.getElementById('form-cliente');
+            form.reset();
+            document.getElementById('cli-id').value = '';
+            document.getElementById('titulo-modal-cliente').innerText = 'Cadastrar Novo Cliente';
+
+            if (id !== null) {
+                const cli = cacheClientes.find(item => String(item.id) === String(id));
+                if (cli) {
+                    document.getElementById('titulo-modal-cliente').innerText = 'Editar Cliente';
+                    document.getElementById('cli-id').value = cli.id;
+                    document.getElementById('cli-nome').value = cli.nome || '';
+                    document.getElementById('cli-email').value = cli.email || '';
+                    document.getElementById('cli-telefone').value = cli.telefone || '';
+                    document.getElementById('cli-evento').value = cli.evento_associado || '';
+                    document.getElementById('cli-valor').value = cli.valor_total || '';
+                    document.getElementById('cli-forma-pagamento').value = cli.forma_pagamento || 'Dinheiro';
+                    document.getElementById('cli-status').value = cli.status_pagamento || 'Pendente';
+                }
+            }
+            document.getElementById('modal-cliente').showModal();
+        }
+
+        function alternarSelecaoCliente(id) {
+            const idStr = String(id);
+            if (clientesSelecionados.has(idStr)) clientesSelecionados.delete(idStr);
+            else clientesSelecionados.add(idStr);
+            atualizarBarraSelecaoClientes();
+        }
+
+        function alternarTodosClientes(masterCheckbox) {
+            if (masterCheckbox.checked) {
+                cacheClientes.forEach(c => clientesSelecionados.add(String(c.id)));
+            } else {
+                clientesSelecionados.clear();
+            }
+            carregarClientes();
+        }
+
+        function limparSelecaoClientes() {
+            clientesSelecionados.clear();
+            const master = document.getElementById('selecionar-todos-clientes');
+            if (master) master.checked = false;
+            carregarClientes();
+        }
+
+        function atualizarBarraSelecaoClientes() {
+            const barra = document.getElementById('barra-selecao-clientes');
+            if (clientesSelecionados.size === 0) {
+                barra.classList.add('hidden');
+                return;
+            }
+            barra.classList.remove('hidden');
+            document.getElementById('qtd-clientes-marcados').innerText = clientesSelecionados.size;
+
+            let soma = 0;
+            cacheClientes.forEach(c => {
+                if (clientesSelecionados.has(String(c.id))) soma += Number(c.valor_total || 0);
+            });
+            document.getElementById('soma-clientes-marcados').innerText = soma.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        async function marcarSelecionadosComoPagos() {
+            const ids = Array.from(clientesSelecionados);
+            if (ids.length === 0) return;
+            const { error } = await _supabase.from('clientes').update({ status_pagamento: 'Pago' }).in('id', ids);
+            if (!error) {
+                clientesSelecionados.clear();
+                carregarClientes();
+            } else {
+                alert('Erro ao atualizar selecionados: ' + error.message);
+            }
+        }
+
+        async function apagarClientesSelecionados() {
+            const ids = Array.from(clientesSelecionados);
+            if (ids.length === 0) return;
+            if (!confirm(`Deseja realmente apagar ${ids.length} cliente(s) marcado(s)?`)) return;
+
+            const { error } = await _supabase.from('clientes').delete().in('id', ids);
+            if (error) {
+                alert('Erro ao apagar clientes selecionados: ' + error.message);
+            } else {
+                ids.forEach(id => localStorage.removeItem(`pag_cli_${id}`));
+                clientesSelecionados.clear();
+                const master = document.getElementById('selecionar-todos-clientes');
+                if (master) master.checked = false;
+                await carregarClientes();
+                await carregarEventos();
+            }
+        }
+
+        async function alterarFormaPagamentoDireto(id, novaForma) {
+            const cli = cacheClientes.find(c => String(c.id) === String(id));
+            if (cli) cli.forma_pagamento = novaForma;
+            localStorage.setItem(`pag_cli_${id}`, novaForma);
+
+            const { error } = await _supabase.from('clientes').update({ forma_pagamento: novaForma }).eq('id', id);
+            if (error) console.warn('Salvo localmente:', error.message);
+            carregarClientes();
+        }
+
+        async function carregarClientes() {
+            const { data: clientes, error } = await _supabase.from('clientes').select('*').order('created_at', { ascending: false });
+            if (error) return console.error('Erro clientes:', error);
+
+            cacheClientes = (clientes || []).map(c => ({
+                ...c,
+                forma_pagamento: c.forma_pagamento || localStorage.getItem(`pag_cli_${c.id}`) || 'Dinheiro'
+            }));
+
+            const tbody = document.getElementById('tabela-clientes');
+            tbody.innerHTML = '';
+            let totalPagos = 0;
+
+            if (cacheClientes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+            }
+
+            cacheClientes.forEach(cli => {
+                const isPago = cli.status_pagamento === 'Pago';
+                if (isPago) totalPagos++;
+
+                const idStr = String(cli.id);
+                const isChecked = clientesSelecionados.has(idStr);
+                const badgeColor = isPago ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
+                const valorFormatado = Number(cli.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const forma = cli.forma_pagamento;
+                const linkZap = gerarLinkWhatsApp(cli.telefone, cli.nome, 'cliente');
+                const linkTel = gerarLinkLigacao(cli.telefone);
+
+                let selectStyle = 'bg-slate-800 border-slate-700 text-gray-300';
+                if (forma === 'Dinheiro') selectStyle = 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-semibold';
+                else if (forma === 'PIX') selectStyle = 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300 font-semibold';
+                else if (forma.includes('Cartão')) selectStyle = 'bg-purple-500/15 border-purple-500/40 text-purple-300 font-semibold';
+
+                tbody.innerHTML += `
+                    <tr class="${isChecked ? 'bg-indigo-500/10' : 'hover:bg-slate-800/60'} transition-colors">
+                        <td class="p-4">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="alternarSelecaoCliente('${cli.id}')" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-white">${cli.nome}</span>
+                                <a href="${linkZap}" target="_blank" rel="noopener noreferrer" title="Conversar no WhatsApp" class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-full transition-colors">
+                                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp
+                                </a>
+                                <a href="${linkTel}" title="Ligar para ${cli.telefone}" class="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-full transition-colors">
+                                    <i data-lucide="phone" class="w-3.5 h-3.5"></i> Ligar
+                                </a>
+                            </div>
+                        </td>
+                        <td class="p-4 text-xs">
+                            <div>${cli.email}</div>
+                            <div class="text-gray-500 font-medium">${cli.telefone}</div>
+                        </td>
+                        <td class="p-4">${cli.evento_associado}</td>
+                        <td class="p-4 font-semibold text-gray-200">${valorFormatado}</td>
+                        <td class="p-4">
+                            <select onchange="alterarFormaPagamentoDireto('${cli.id}', this.value)" class="text-xs border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${selectStyle}">
+                                <option value="Dinheiro" ${forma === 'Dinheiro' ? 'selected' : ''}>💵 Dinheiro</option>
+                                <option value="PIX" ${forma === 'PIX' ? 'selected' : ''}>💠 PIX</option>
+                                <option value="Cartão de Crédito" ${forma === 'Cartão de Crédito' ? 'selected' : ''}>💳 Cartão de Crédito</option>
+                                <option value="Cartão de Débito" ${forma === 'Cartão de Débito' ? 'selected' : ''}>💳 Cartão de Débito</option>
+                            </select>
+                        </td>
+                        <td class="p-4">
+                            <button onclick="alternarStatusPagamento('${cli.id}', '${cli.status_pagamento}')" title="Clique para alternar status" class="px-2.5 py-1 text-xs font-medium ${badgeColor} rounded-full hover:opacity-80 transition">
+                                ${cli.status_pagamento}
+                            </button>
+                        </td>
+                        <td class="p-4 text-center space-x-1">
+                            <button type="button" onclick="abrirModalCliente('${cli.id}')" class="p-1.5 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Cliente">
+                                <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                            </button>
+                            <button type="button" onclick="deletarItem('clientes', '${cli.id}')" class="p-1.5 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Cliente">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('kpi-pagos').innerText = totalPagos;
+            document.getElementById('badge-menu-clientes').innerText = cacheClientes.length;
+
+            atualizarBarraSelecaoClientes();
+            atualizarRelatorios();
+            atualizarGraficosDashboard();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function alternarStatusPagamento(id, statusAtual) {
+            const novoStatus = statusAtual === 'Pago' ? 'Pendente' : 'Pago';
+            const { error } = await _supabase.from('clientes').update({ status_pagamento: novoStatus }).eq('id', id);
+            if (!error) carregarClientes();
+        }
+
+        document.getElementById('form-cliente').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('cli-id').value;
+            const formaSelecionada = document.getElementById('cli-forma-pagamento').value;
+
+            const dadosCliente = {
+                nome: document.getElementById('cli-nome').value,
+                email: document.getElementById('cli-email').value,
+                telefone: document.getElementById('cli-telefone').value,
+                evento_associado: document.getElementById('cli-evento').value,
+                valor_total: parseFloat(document.getElementById('cli-valor').value),
+                forma_pagamento: formaSelecionada,
+                status_pagamento: document.getElementById('cli-status').value
+            };
+
+            let res = id
+                ? await _supabase.from('clientes').update(dadosCliente).eq('id', id).select()
+                : await _supabase.from('clientes').insert([dadosCliente]).select();
+
+            if (res.error && res.error.message.includes('forma_pagamento')) {
+                delete dadosCliente.forma_pagamento;
+                res = id
+                    ? await _supabase.from('clientes').update(dadosCliente).eq('id', id).select()
+                    : await _supabase.from('clientes').insert([dadosCliente]).select();
+            }
+
+            if (!res.error) {
+                if (res.data && res.data[0]) {
+                    localStorage.setItem(`pag_cli_${res.data[0].id}`, formaSelecionada);
+                }
+                document.getElementById('modal-cliente').close();
+                document.getElementById('form-cliente').reset();
+                carregarClientes();
+            } else {
+                alert('Erro ao salvar cliente: ' + res.error.message);
+            }
+        });
+
+        function abrirModalFornecedor(id = null) {
+            const form = document.getElementById('form-fornecedor');
+            form.reset();
+            document.getElementById('forn-id').value = '';
+            document.getElementById('titulo-modal-fornecedor').innerText = 'Cadastrar Novo Fornecedor';
+
+            if (id !== null) {
+                const forn = cacheFornecedores.find(item => String(item.id) === String(id));
+                if (forn) {
+                    document.getElementById('titulo-modal-fornecedor').innerText = 'Editar Fornecedor';
+                    document.getElementById('forn-id').value = forn.id;
+                    document.getElementById('forn-nome').value = forn.nome || '';
+                    document.getElementById('forn-categoria').value = forn.categoria || 'Buffet & Alimentação';
+                    document.getElementById('forn-telefone').value = forn.telefone || '';
+                    document.getElementById('forn-valor').value = forn.valor || 0;
+                    document.getElementById('forn-status').value = forn.status_pagamento || 'A Pagar';
+                    document.getElementById('forn-obs').value = forn.observacoes || '';
+                }
+            }
+            document.getElementById('modal-fornecedor').showModal();
+        }
+
+        async function alternarStatusFornecedor(id, statusAtual) {
+            const novoStatus = statusAtual === 'Pago' ? 'A Pagar' : 'Pago';
+            const idStr = String(id);
+
+            const itemLocal = cacheFornecedores.find(f => String(f.id) === idStr);
+            if (itemLocal) itemLocal.status_pagamento = novoStatus;
+            localStorage.setItem(`forn_extra_${idStr}`, JSON.stringify({
+                valor: itemLocal ? itemLocal.valor : 0,
+                status_pagamento: novoStatus
+            }));
+
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('fornecedores').update({ status_pagamento: novoStatus }).eq('id', id);
+            }
+            localStorage.setItem('fornecedores_backup', JSON.stringify(cacheFornecedores));
+            renderizarFornecedores();
+            atualizarRelatorios();
+        }
+
+        async function carregarFornecedores() {
+            const { data, error } = await _supabase.from('fornecedores').select('*').order('created_at', { ascending: false });
+            if (!error && data) {
+                cacheFornecedores = data.map(f => {
+                    const backupExtra = JSON.parse(localStorage.getItem(`forn_extra_${f.id}`) || 'null');
+                    return {
+                        ...f,
+                        valor: f.valor !== undefined && f.valor !== null ? Number(f.valor) : (backupExtra ? Number(backupExtra.valor) : 0),
+                        status_pagamento: f.status_pagamento || (backupExtra ? backupExtra.status_pagamento : 'A Pagar')
+                    };
+                });
+            }
+            renderizarFornecedores();
+            atualizarRelatorios();
+        }
+
+        function renderizarFornecedores() {
+            const tbody = document.getElementById('tabela-fornecedores');
+            tbody.innerHTML = '';
+
+            let totalGeral = 0;
+            let totalAPagar = 0;
+            let totalPago = 0;
+
+            cacheFornecedores.forEach(f => {
+                const val = Number(f.valor || 0);
+                totalGeral += val;
+                if (f.status_pagamento === 'Pago') totalPago += val;
+                else totalAPagar += val;
+            });
+
+            const fmt = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            document.getElementById('forn-kpi-total').innerText = fmt(totalGeral);
+            document.getElementById('forn-kpi-apagar').innerText = fmt(totalAPagar);
+            document.getElementById('forn-kpi-pago').innerText = fmt(totalPago);
+            document.getElementById('badge-menu-fornecedores').innerText = cacheFornecedores.length;
+
+            if (cacheFornecedores.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500">Nenhum fornecedor cadastrado. Clique em "Cadastrar Fornecedor" acima.</td></tr>`;
+                return;
+            }
+
+            cacheFornecedores.forEach(f => {
+                const linkZap = gerarLinkWhatsApp(f.telefone, f.nome, 'fornecedor');
+                const linkTel = gerarLinkLigacao(f.telefone);
+                const valorFormatado = Number(f.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const isPago = f.status_pagamento === 'Pago';
+                const statusBadge = isPago
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/20 text-rose-300';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/60">
+                        <td class="p-4 font-semibold text-white">${f.nome}</td>
+                        <td class="p-4"><span class="px-2.5 py-1 text-xs font-medium bg-indigo-500/20 text-indigo-300 rounded-full">${f.categoria}</span></td>
+                        <td class="p-4">
+                            <div class="text-xs font-medium text-gray-300 mb-1.5">${f.telefone}</div>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <a href="${linkZap}" target="_blank" rel="noopener noreferrer" title="Chamar no WhatsApp" class="inline-flex items-center gap-1 px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp
+                                </a>
+                                <a href="${linkTel}" title="Fazer Ligação" class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors">
+                                    <i data-lucide="phone" class="w-3.5 h-3.5"></i> Ligar
+                                </a>
+                            </div>
+                        </td>
+                        <td class="p-4 font-bold text-white">${valorFormatado}</td>
+                        <td class="p-4">
+                            <button onclick="alternarStatusFornecedor('${f.id}', '${f.status_pagamento || 'A Pagar'}')" title="Clique para alternar entre A Pagar e Pago" class="px-2.5 py-1 text-xs font-semibold ${statusBadge} rounded-full hover:opacity-80 transition">
+                                ${f.status_pagamento || 'A Pagar'}
+                            </button>
+                        </td>
+                        <td class="p-4 text-xs text-gray-500 max-w-xs truncate">${f.observacoes || '—'}</td>
+                        <td class="p-4 text-center space-x-1">
+                            <button type="button" onclick="abrirModalFornecedor('${f.id}')" class="p-1.5 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Fornecedor / Preço">
+                                <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                            </button>
+                            <button type="button" onclick="removerFornecedor('${f.id}')" class="p-1.5 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Fornecedor">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        document.getElementById('form-fornecedor').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('forn-id').value;
+            const valorNum = parseFloat(document.getElementById('forn-valor').value) || 0;
+            const statusPag = document.getElementById('forn-status').value;
+
+            const dadosForn = {
+                nome: document.getElementById('forn-nome').value,
+                categoria: document.getElementById('forn-categoria').value,
+                telefone: document.getElementById('forn-telefone').value,
+                valor: valorNum,
+                status_pagamento: statusPag,
+                observacoes: document.getElementById('forn-obs').value
+            };
+
+            const idStr = String(id);
+            let res;
+
+            if (id && !idStr.startsWith('local_')) {
+                res = await _supabase.from('fornecedores').update(dadosForn).eq('id', id).select();
+                if (res.error && (res.error.message.includes('valor') || res.error.message.includes('status_pagamento'))) {
+                    const semExtras = { ...dadosForn };
+                    delete semExtras.valor;
+                    delete semExtras.status_pagamento;
+                    res = await _supabase.from('fornecedores').update(semExtras).eq('id', id).select();
+                }
+            } else if (!id) {
+                res = await _supabase.from('fornecedores').insert([dadosForn]).select();
+                if (res.error && (res.error.message.includes('valor') || res.error.message.includes('status_pagamento'))) {
+                    const semExtras = { ...dadosForn };
+                    delete semExtras.valor;
+                    delete semExtras.status_pagamento;
+                    res = await _supabase.from('fornecedores').insert([semExtras]).select();
+                }
+            }
+
+            if (res && !res.error && res.data && res.data[0]) {
+                localStorage.setItem(`forn_extra_${res.data[0].id}`, JSON.stringify({ valor: valorNum, status_pagamento: statusPag }));
+                await carregarFornecedores();
+            } else {
+                if (id) {
+                    const idx = cacheFornecedores.findIndex(f => String(f.id) === idStr);
+                    if (idx !== -1) cacheFornecedores[idx] = { ...cacheFornecedores[idx], ...dadosForn };
+                } else {
+                    dadosForn.id = 'local_' + Date.now();
+                    cacheFornecedores.unshift(dadosForn);
+                }
+                localStorage.setItem('fornecedores_backup', JSON.stringify(cacheFornecedores));
+                renderizarFornecedores();
+                atualizarRelatorios();
+            }
+
+            document.getElementById('modal-fornecedor').close();
+            document.getElementById('form-fornecedor').reset();
+        });
+
+        async function removerFornecedor(id) {
+            if (!confirm('Deseja excluir este fornecedor?')) return;
+            const idStr = String(id);
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('fornecedores').delete().eq('id', id);
+            }
+            localStorage.removeItem(`forn_extra_${idStr}`);
+            cacheFornecedores = cacheFornecedores.filter(f => String(f.id) !== idStr);
+            localStorage.setItem('fornecedores_backup', JSON.stringify(cacheFornecedores));
+            renderizarFornecedores();
+            atualizarRelatorios();
+        }
+
+        async function carregarDespesas() {
+            const { data, error } = await _supabase.from('despesas').select('*').order('created_at', { ascending: false });
+            if (!error && data) {
+                cacheDespesas = data;
+            }
+            atualizarRelatorios();
+        }
+
+        document.getElementById('form-despesa').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const novaDespesa = {
+                descricao: document.getElementById('desp-descricao').value,
+                categoria: document.getElementById('desp-categoria').value,
+                valor: parseFloat(document.getElementById('desp-valor').value),
+                evento: document.getElementById('desp-evento').value || 'Geral',
+                data: document.getElementById('desp-data').value || new Date().toISOString().split('T')[0]
+            };
+
+            const { data, error } = await _supabase.from('despesas').insert([novaDespesa]).select();
+            if (error) {
+                novaDespesa.id = 'local_' + Date.now();
+                cacheDespesas.unshift(novaDespesa);
+                localStorage.setItem('despesas_backup', JSON.stringify(cacheDespesas));
+            } else if (data && data[0]) {
+                cacheDespesas.unshift(data[0]);
+            }
+
+            document.getElementById('modal-despesa').close();
+            document.getElementById('form-despesa').reset();
+            atualizarRelatorios();
+        });
+
+        async function removerDespesa(id) {
+            if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
+            const idStr = String(id);
+            if (!idStr.startsWith('local_')) {
+                await _supabase.from('despesas').delete().eq('id', id);
+            }
+            cacheDespesas = cacheDespesas.filter(d => String(d.id) !== idStr);
+            localStorage.setItem('despesas_backup', JSON.stringify(cacheDespesas));
+            atualizarRelatorios();
+        }
+
+        async function carregarEstoque() {
+            const { data: estoque, error } = await _supabase.from('estoque').select('*');
+            if (error) return console.error('Erro estoque:', error);
+
+            cacheEstoque = estoque || [];
+            const tbody = document.getElementById('tabela-estoque');
+            const containerAlertas = document.getElementById('lista-alertas');
+            tbody.innerHTML = '';
+            containerAlertas.innerHTML = '';
+            let countAlerta = 0;
+
+            if (cacheEstoque.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500">Nenhum produto cadastrado no estoque.</td></tr>`;
+            }
+
+            cacheEstoque.forEach(item => {
+                const emAlerta = item.qtd_disponivel <= item.qtd_minima;
+                if (emAlerta) countAlerta++;
+
+                const statusBadge = emAlerta
+                    ? '<span class="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-300 rounded">Crítico</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-300 rounded">OK</span>';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/60">
+                        <td class="p-4 font-mono text-xs text-gray-400">${item.sku}</td>
+                        <td class="p-4 font-medium text-white">${item.nome}</td>
+                        <td class="p-4">${item.categoria}</td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-2">
+                                <button onclick="alterarQtdEstoque('${item.id}', ${item.qtd_disponivel - 1})" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 font-bold text-gray-200">-</button>
+                                <span class="${emAlerta ? 'text-red-400 font-bold' : 'font-semibold'} min-w-[24px] text-center">${item.qtd_disponivel}</span>
+                                <button onclick="alterarQtdEstoque('${item.id}', ${item.qtd_disponivel + 1})" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 font-bold text-gray-200">+</button>
+                            </div>
+                        </td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-center">
+                            <button onclick="deletarItem('estoque', '${item.id}')" class="p-1 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Produto">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+
+                if (emAlerta) {
+                    containerAlertas.innerHTML += `
+                        <div class="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg flex justify-between items-center">
+                            <div>
+                                <p class="text-sm font-semibold text-indigo-100">${item.nome}</p>
+                                <p class="text-xs text-indigo-300">Restantes: ${item.qtd_disponivel} | Mínimo: ${item.qtd_minima}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (countAlerta === 0) {
+                containerAlertas.innerHTML = `<p class="text-xs text-emerald-300 bg-emerald-500/10 p-3 rounded-lg">Todos os itens estão com estoque adequado.</p>`;
+            }
+
+            document.getElementById('kpi-alerta').innerText = `${countAlerta} Itens`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function alterarQtdEstoque(id, novaQtd) {
+            if (novaQtd < 0) return;
+            const { error } = await _supabase.from('estoque').update({ qtd_disponivel: novaQtd }).eq('id', id);
+            if (!error) carregarEstoque();
+        }
+
+        document.getElementById('form-produto').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const novoItem = {
+                sku: document.getElementById('est-sku').value,
+                nome: document.getElementById('est-nome').value,
+                categoria: document.getElementById('est-categoria').value,
+                qtd_disponivel: parseInt(document.getElementById('est-disponivel').value),
+                qtd_minima: parseInt(document.getElementById('est-minima').value),
+                status: 'OK'
+            };
+            const { error } = await _supabase.from('estoque').insert([novoItem]);
+            if (!error) {
+                document.getElementById('modal-produto').close();
+                document.getElementById('form-produto').reset();
+                carregarEstoque();
+            } else {
+                alert('Erro ao cadastrar produto: ' + error.message);
+            }
+        });
+
+        function atualizarGraficosDashboard() {
+            const ctxEv = document.getElementById('grafico-eventos');
+            const ctxPag = document.getElementById('grafico-pagamentos');
+            if (!ctxEv || !ctxPag) return;
+
+            const mapaEventos = {};
+            cacheEventos.forEach(ev => { mapaEventos[ev.nome] = 0; });
+            cacheClientes.forEach(cli => {
+                const evNome = cli.evento_associado || 'Outros';
+                mapaEventos[evNome] = (mapaEventos[evNome] || 0) + Number(cli.valor_total || 0);
+            });
+
+            const labelsEventos = Object.keys(mapaEventos).length ? Object.keys(mapaEventos) : ['Sem eventos'];
+            const valoresEventos = Object.values(mapaEventos).length ? Object.values(mapaEventos) : [0];
+
+            if (chartEventosInstance) chartEventosInstance.destroy();
+            chartEventosInstance = new Chart(ctxEv, {
+                type: 'bar',
+                data: {
+                    labels: labelsEventos,
+                    datasets: [{
+                        label: 'Valor Contratado (R$)',
+                        data: valoresEventos,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 6,
+                        maxBarThickness: 42
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false, labels: { color: '#e5e7eb' } } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            let totalDinheiro = 0, totalPix = 0, totalCartao = 0;
+            cacheClientes.forEach(cli => {
+                const val = Number(cli.valor_total || 0);
+                const forma = cli.forma_pagamento || 'Dinheiro';
+                if (forma === 'Dinheiro') totalDinheiro += val;
+                else if (forma === 'PIX') totalPix += val;
+                else totalCartao += val;
+            });
+
+            cacheVendas.forEach(v => {
+                const val = Number(v.valor_total || 0);
+                const forma = v.forma_pagamento || 'PIX';
+                if (forma === 'Dinheiro') totalDinheiro += val;
+                else if (forma === 'PIX') totalPix += val;
+                else totalCartao += val;
+            });
+
+            if (chartPagamentosInstance) chartPagamentosInstance.destroy();
+            chartPagamentosInstance = new Chart(ctxPag, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Dinheiro', 'PIX', 'Cartão'],
+                    datasets: [{
+                        data: [totalDinheiro, totalPix, totalCartao],
+                        backgroundColor: ['#10b981', '#6366f1', '#9333ea'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#e5e7eb' } }
+                    }
+                }
+            });
+        }
+
+        function atualizarRelatorios() {
+            let dinheiroPago = 0, dinheiroPendente = 0;
+            let pixPago = 0, pixPendente = 0;
+            let cartaoPago = 0, cartaoPendente = 0;
+            let totalRecebido = 0, totalPendente = 0;
+
+            const tbodyExtrato = document.getElementById('rel-tabela-extrato');
+            if (tbodyExtrato) tbodyExtrato.innerHTML = '';
+
+            cacheClientes.forEach(c => {
+                const val = Number(c.valor_total || 0);
+                const isPago = c.status_pagamento === 'Pago';
+                const forma = c.forma_pagamento || 'Dinheiro';
+
+                if (isPago) totalRecebido += val;
+                else totalPendente += val;
+
+                if (forma === 'Dinheiro') {
+                    if (isPago) dinheiroPago += val; else dinheiroPendente += val;
+                } else if (forma === 'PIX') {
+                    if (isPago) pixPago += val; else pixPendente += val;
+                } else {
+                    if (isPago) cartaoPago += val; else cartaoPendente += val;
+                }
+
+                if (tbodyExtrato) {
+                    const fmtVal = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const statusClass = isPago ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
+                    tbodyExtrato.innerHTML += `
+                        <tr>
+                            <td class="p-3.5 font-medium text-white">${c.nome}</td>
+                            <td class="p-3.5 text-xs">${c.evento_associado}</td>
+                            <td class="p-3.5 text-xs font-semibold text-indigo-400">${forma}</td>
+                            <td class="p-3.5"><span class="px-2 py-0.5 text-xs font-medium ${statusClass} rounded-full">${c.status_pagamento}</span></td>
+                            <td class="p-3.5 text-right font-bold text-gray-200">${fmtVal}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // Soma também as vendas de produtos nas entradas do relatório
+            cacheVendas.forEach(v => {
+                const val = Number(v.valor_total || 0);
+                const isPago = v.status_pagamento === 'Pago';
+                const forma = v.forma_pagamento || 'PIX';
+
+                if (isPago) totalRecebido += val;
+                else totalPendente += val;
+
+                if (forma === 'Dinheiro') {
+                    if (isPago) dinheiroPago += val; else dinheiroPendente += val;
+                } else if (forma === 'PIX') {
+                    if (isPago) pixPago += val; else pixPendente += val;
+                } else {
+                    if (isPago) cartaoPago += val; else cartaoPendente += val;
+                }
+
+                if (tbodyExtrato) {
+                    const fmtVal = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const statusClass = isPago ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
+                    tbodyExtrato.innerHTML += `
+                        <tr>
+                            <td class="p-3.5 font-medium text-white">${v.comprador || 'Cliente Balcão'}</td>
+                            <td class="p-3.5 text-xs"><span class="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 rounded mr-1">Produto</span> ${v.quantidade}x ${v.produto_nome}</td>
+                            <td class="p-3.5 text-xs font-semibold text-indigo-400">${forma}</td>
+                            <td class="p-3.5"><span class="px-2 py-0.5 text-xs font-medium ${statusClass} rounded-full">${v.status_pagamento || 'Pago'}</span></td>
+                            <td class="p-3.5 text-right font-bold text-emerald-300">${fmtVal}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            if (tbodyExtrato && cacheClientes.length === 0 && cacheVendas.length === 0) {
+                tbodyExtrato.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum lançamento de cliente ou venda registrado.</td></tr>`;
+            }
+
+            // ===== CÁLCULO DE SAÍDAS =====
+            let totalGastoEventos = 0;
+            let totalFornecedoresPago = 0;
+            let totalFornecedoresAPagar = 0;
+            let totalDespesasExtras = 0;
+            const tbodyDespesas = document.getElementById('rel-tabela-despesas');
+            if (tbodyDespesas) tbodyDespesas.innerHTML = '';
+
+            // 1. Eventos
+            cacheEventos.forEach(ev => {
+                const valEv = Number(ev.custo || 0);
+                totalGastoEventos += valEv;
+                if (tbodyDespesas && valEv > 0) {
+                    const fmtEv = valEv.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    tbodyDespesas.innerHTML += `
+                        <tr class="hover:bg-slate-800/60">
+                            <td class="p-3.5 font-medium text-white">${ev.nome}</td>
+                            <td class="p-3.5 text-xs"><span class="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded">Evento: ${ev.local}</span></td>
+                            <td class="p-3.5"><span class="px-2 py-0.5 text-xs font-medium bg-amber-500/20 text-amber-300 rounded-full">${ev.status}</span></td>
+                            <td class="p-3.5 text-right font-bold text-rose-400">- ${fmtEv}</td>
+                            <td class="p-3.5 text-center">
+                                <button onclick="abrirModalEvento('${ev.id}')" class="p-1 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Preço Gasto">
+                                    <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // 2. Fornecedores (separando por status)
+            cacheFornecedores.forEach(f => {
+                const valForn = Number(f.valor || 0);
+                const isPagoForn = f.status_pagamento === 'Pago';
+                if (isPagoForn) totalFornecedoresPago += valForn;
+                else totalFornecedoresAPagar += valForn;
+
+                if (tbodyDespesas && valForn > 0) {
+                    const fmtForn = valForn.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const sitClass = isPagoForn ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300';
+                    tbodyDespesas.innerHTML += `
+                        <tr class="hover:bg-slate-800/60">
+                            <td class="p-3.5 font-medium text-white">${f.nome}</td>
+                            <td class="p-3.5 text-xs"><span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded">Fornecedor: ${f.categoria}</span></td>
+                            <td class="p-3.5"><span class="px-2 py-0.5 text-xs font-medium ${sitClass} rounded-full">${f.status_pagamento || 'A Pagar'}</span></td>
+                            <td class="p-3.5 text-right font-bold text-rose-400">- ${fmtForn}</td>
+                            <td class="p-3.5 text-center">
+                                <button onclick="abrirModalFornecedor('${f.id}')" class="p-1 text-indigo-400 hover:bg-indigo-500/15 rounded" title="Editar Preço">
+                                    <i data-lucide="pencil" class="w-4 h-4 inline"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // 3. Despesas Extras
+            cacheDespesas.forEach(d => {
+                const valDesp = Number(d.valor || 0);
+                totalDespesasExtras += valDesp;
+                if (tbodyDespesas) {
+                    const fmtDesp = valDesp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    tbodyDespesas.innerHTML += `
+                        <tr class="hover:bg-slate-800/60">
+                            <td class="p-3.5 font-medium text-white">${d.descricao}</td>
+                            <td class="p-3.5 text-xs"><span class="px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded">Extra: ${d.categoria}</span></td>
+                            <td class="p-3.5"><span class="px-2 py-0.5 text-xs font-medium bg-slate-700 text-gray-300 rounded-full">Lançado</span></td>
+                            <td class="p-3.5 text-right font-bold text-rose-400">- ${fmtDesp}</td>
+                            <td class="p-3.5 text-center">
+                                <button onclick="removerDespesa('${d.id}')" class="p-1 text-red-400 hover:bg-red-500/15 rounded" title="Excluir Despesa">
+                                    <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            const totalFornecedores = totalFornecedoresPago + totalFornecedoresAPagar;
+            const totalSaidas = totalGastoEventos + totalFornecedores + totalDespesasExtras;
+
+            const saidasRealizadas = totalGastoEventos + totalFornecedoresPago + totalDespesasExtras;
+
+            if (tbodyDespesas && totalSaidas === 0 && cacheDespesas.length === 0) {
+                tbodyDespesas.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum gasto de evento, fornecedor ou despesa extra registrado.</td></tr>`;
+            }
+
+            const lucroLiquido = totalRecebido - saidasRealizadas;
+            const lucroProjetado = (totalRecebido + totalPendente) - totalSaidas;
+
+            const fmt = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            document.getElementById('rel-recebido').innerText = fmt(totalRecebido);
+            document.getElementById('rel-pendente').innerText = `A receber (pendente): ${fmt(totalPendente)}`;
+
+            document.getElementById('rel-total-despesas').innerText = fmt(totalSaidas);
+            document.getElementById('rel-detalhe-saidas').innerText =
+                `Pago: ${fmt(saidasRealizadas)} | A Pagar: ${fmt(totalFornecedoresAPagar)}`;
+
+            document.getElementById('rel-lucro-liquido').innerText = fmt(lucroLiquido);
+            document.getElementById('rel-lucro-projetado').innerText = `Projetado c/ pendentes: ${fmt(lucroProjetado)}`;
+
+            const kpiLucroDash = document.getElementById('kpi-lucro-dashboard');
+            if (kpiLucroDash) kpiLucroDash.innerText = fmt(lucroLiquido);
+
+            const cardLucro = document.getElementById('card-lucro-liquido');
+            if (cardLucro) {
+                cardLucro.className = lucroLiquido < 0
+                    ? "bg-rose-700 text-white p-6 rounded-xl shadow-sm"
+                    : "bg-indigo-700 text-white p-6 rounded-xl shadow-sm";
+            }
+
+            document.getElementById('rel-dinheiro-pago').innerText = fmt(dinheiroPago);
+            document.getElementById('rel-dinheiro-pendente').innerText = `Pendente em dinheiro: ${fmt(dinheiroPendente)}`;
+
+            document.getElementById('rel-pix-pago').innerText = fmt(pixPago);
+            document.getElementById('rel-pix-pendente').innerText = `Pendente em PIX: ${fmt(pixPendente)}`;
+
+            document.getElementById('rel-cartao-pago').innerText = fmt(cartaoPago);
+            document.getElementById('rel-cartao-pendente').innerText = `Pendente em cartão: ${fmt(cartaoPendente)}`;
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function deletarItem(tabela, id) {
+            if (!confirm('Tem certeza que deseja excluir este registro?')) return;
+
+            const { data, error } = await _supabase
+                .from(tabela)
+                .delete()
+                .eq('id', id)
+                .select();
+
+            if (error) {
+                alert('Erro ao excluir do banco de dados: ' + error.message);
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                alert('Não foi possível apagar o registro no Supabase. Verifique se a política de DELETE (RLS) está liberada na tabela "' + tabela + '".');
+                return;
+            }
+
+            if (tabela === 'clientes') {
+                clientesSelecionados.delete(String(id));
+                localStorage.removeItem(`pag_cli_${id}`);
+                await carregarClientes();
+                await carregarEventos();
+            } else if (tabela === 'eventos') {
+                localStorage.removeItem(`custo_ev_${id}`);
+                await carregarEventos();
+            } else if (tabela === 'estoque') {
+                await carregarEstoque();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await carregarClientes();
+            await carregarEventos();
+            await carregarEstoque();
+            await carregarFornecedores();
+            await carregarDespesas();
+            await carregarVendas();
+            navegarPara('dashboard');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
